@@ -23,13 +23,15 @@ let package = Package(
         .library(name: "OpenCombineDispatch", targets: ["OpenCombineDispatch"]),
         .library(name: "OpenCombineFoundation", targets: ["OpenCombineFoundation"]),
     ],
+    dependencies: [.package(url: "https://github.com/MaxDesiatov/Runtime.git", from: "2.1.2")],
     targets: [
         .target(name: "COpenCombineHelpers"),
         .target(
             name: "OpenCombine",
             dependencies: [
                 .target(name: "COpenCombineHelpers",
-                        condition: .when(platforms: supportedPlatforms.except([.wasi])))
+                        condition: .when(platforms: supportedPlatforms.except([.wasi]))),
+                .product(name: "Runtime", package: "Runtime", condition: .when(platforms: [.wasi])),
             ],
             exclude: [
                 "Publishers/Publishers.Encode.swift.gyb",
