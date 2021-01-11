@@ -107,8 +107,16 @@ public struct Published<Value> {
         case value(Value)
         case publisher(Publisher)
     }
+    @propertyWrapper
+    private class Box {
+        var wrappedValue: Storage
 
-    private var storage: Storage
+        init(wrappedValue: Storage) {
+            self.wrappedValue = wrappedValue
+        }
+    }
+
+    @Box private var storage: Storage
 
     internal var objectWillChange: ObservableObjectPublisher? {
         get {
@@ -119,7 +127,7 @@ public struct Published<Value> {
                 return publisher.subject.objectWillChange
             }
         }
-        set {
+        nonmutating set {
             projectedValue.subject.objectWillChange = newValue
         }
     }
@@ -145,14 +153,14 @@ public struct Published<Value> {
     ///
     /// - Parameter initialValue: The publisher's initial value.
     public init(wrappedValue: Value) {
-        storage = .value(wrappedValue)
+        _storage = Box(wrappedValue: .value(wrappedValue))
     }
 
     /// The property for which this instance exposes a publisher.
     ///
     /// The `projectedValue` is the property accessed with the `$` operator.
     public var projectedValue: Publisher {
-        mutating get {
+        get {
             switch storage {
             case .value(let value):
                 let publisher = Publisher(value)

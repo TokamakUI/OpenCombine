@@ -5,10 +5,6 @@
 //  Created by Sergej Jaskiewicz on 08/09/2019.
 //
 
-#if canImport(Runtime)
-import Runtime
-#endif
-
 /// A type of object with a publisher that emits before the object has changed.
 ///
 /// By default an `ObservableObject` synthesizes an `objectWillChange` publisher that
@@ -46,102 +42,57 @@ public protocol ObservableObject: AnyObject {
     var objectWillChange: ObjectWillChangePublisher { get }
 }
 
-#if swift(>=5.1) && canImport(Runtime)
 private protocol _ObservableObjectProperty {
-    var objectWillChange: ObservableObjectPublisher? { get set }
+    var objectWillChange: ObservableObjectPublisher? { get nonmutating set }
 }
 
-extension _ObservableObjectProperty {
-
-    fileprivate static func installPublisher(
-        _ publisher: ObservableObjectPublisher,
-        on publishedStorage: UnsafeMutableRawPointer
-    ) {
-        // It is safe to call assumingMemoryBound here because we know for sure
-        // that the actual type of the pointee is Self.
-        publishedStorage
-            .assumingMemoryBound(to: Self.self)
-            .pointee
-            .objectWillChange = publisher
-    }
-
-    fileprivate static func getPublisher(
-        from publishedStorage: UnsafeMutableRawPointer
-    ) -> ObservableObjectPublisher? {
-        // It is safe to call assumingMemoryBound here because we know for sure
-        // that the actual type of the pointee is Self.
-        return publishedStorage
-            .assumingMemoryBound(to: Self.self)
-            .pointee
-            .objectWillChange
-    }
-}
-
+#if swift(>=5.1)
 extension Published: _ObservableObjectProperty {}
-#endif
 
 extension ObservableObject where ObjectWillChangePublisher == ObservableObjectPublisher {
-    // swiftlint:disable let_var_whitespace
-#if swift(>=5.1)
+
     /// A publisher that emits before the object has changed.
-    #if canImport(Runtime)
     public var objectWillChange: ObservableObjectPublisher {
         var installedPublisher: ObservableObjectPublisher?
-        let info = try! typeInfo(of: Self.self)
-        for property in info.properties {
-            let storage = Unmanaged
-                .passUnretained(self)
-                .toOpaque()
-                .advanced(by: property.offset)
+        var reflection: Mirror? = Mirror(reflecting: self)
+        while let aClass = reflection {
+            for (_, property) in aClass.children {
+                guard let property = property as? _ObservableObjectProperty else {
+                    // Visit other fields until we meet a @Published field
+                    continue
+                }
 
-            guard let fieldType = property.type as? _ObservableObjectProperty.Type else {
-                // Visit other fields until we meet a @Published field
-                continue
-            }
+                // Now we know that the field is @Published.
+                if let alreadyInstalledPublisher = property.objectWillChange {
+                    installedPublisher = alreadyInstalledPublisher
+                    // Don't visit other fields, as all @Published fields
+                    // already have a publisher installed.
+                    break
+                }
 
-            // Now we know that the field is @Published.
-            if let alreadyInstalledPublisher = fieldType.getPublisher(from: storage) {
-                installedPublisher = alreadyInstalledPublisher
-                // Don't visit other fields, as all @Published fields
-                // already have a publisher installed.
-                break
-            }
-
-            // Okay, this field doesn't have a publisher installed.
-            // This means that other fields don't have it either
-            // (because we install it only once and fields can't be added at runtime).
-            var lazilyCreatedPublisher: ObjectWillChangePublisher {
-                if let publisher = installedPublisher {
+                // Okay, this field doesn't have a publisher installed.
+                // This means that other fields don't have it either
+                // (because we install it only once and fields can't be added at runtime).
+                var lazilyCreatedPublisher: ObjectWillChangePublisher {
+                    if let publisher = installedPublisher {
+                        return publisher
+                    }
+                    let publisher = ObservableObjectPublisher()
+                    installedPublisher = publisher
                     return publisher
                 }
-                let publisher = ObservableObjectPublisher()
-                installedPublisher = publisher
-                return publisher
+
+                property.objectWillChange = lazilyCreatedPublisher
+
+                // Continue visiting other fields.
             }
-
-            fieldType.installPublisher(lazilyCreatedPublisher, on: storage)
-
-            // Continue visiting other fields.
+            reflection = aClass.superclassMirror
         }
         return installedPublisher ?? ObservableObjectPublisher()
     }
-    #else
-    @available(*, unavailable, message: """
-               The default implementation of objectWillChange is not available yet. \
-               It's being worked on in \
-               https://github.com/broadwaylamb/OpenCombine/pull/97
-               """)
-    public var objectWillChange: ObservableObjectPublisher {
-        fatalError("unimplemented")
-    }
-    #endif
-#else
-    public var objectWillChange: ObservableObjectPublisher {
-        return ObservableObjectPublisher()
-    }
-#endif
-    // swiftlint:enable let_var_whitespace
 }
+
+#endif
 
 /// A publisher that publishes changes from observable objects.
 public final class ObservableObjectPublisher: Publisher {
