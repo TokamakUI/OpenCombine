@@ -95,15 +95,22 @@ final class ObservableObjectTests: XCTestCase {
                                       .value(())])
     }
 
-    func testNoFields() {
-        let observableObject = NoFields()
-        _ = observableObject.objectWillChange
-    }
+    // TODO: `objectWillChange` should return the same `ObservableObjectPublisher`
+    // every time for Combine compatibility
+    //
+    // func testNoFields() {
+    //     let observableObject = NoFields()
+    //     let publisher1 = observableObject.objectWillChange
+    //     let publisher2 = observableObject.objectWillChange
+    //     XCTAssert(publisher1 === publisher2)
+    // }
 
-    func testNoPublishedFields() {
-        let observableObject = NoPublishedFields()
-        _ = observableObject.objectWillChange
-    }
+    // func testNoPublishedFields() {
+    //     let observableObject = NoPublishedFields()
+    //     let publisher1 = observableObject.objectWillChange
+    //     let publisher2 = observableObject.objectWillChange
+    //     XCTAssert(publisher1 === publisher2)
+    // }
 
     func testPublishedFieldIsConstant() {
         let observableObject = PublishedFieldIsConstant()
@@ -210,23 +217,20 @@ final class ObservableObjectTests: XCTestCase {
 
         var counter = 0
 
-        // A bug in Combine (FB7471594). It should not crash. Why would it crash?
-        assertCrashesOnDarwin {
-            observableObject.objectWillChange.sink { counter += 1 }.store(in: &disposeBag)
-            XCTAssertEqual(counter, 0)
-            XCTAssertEqual(observableObject.value1, "hello")
-            XCTAssertEqual(observableObject.value2, true)
+        observableObject.objectWillChange.sink { counter += 1 }.store(in: &disposeBag)
+        XCTAssertEqual(counter, 0)
+        XCTAssertEqual(observableObject.value1, "hello")
+        XCTAssertEqual(observableObject.value2, true)
 
-            observableObject.value1 += "!"
+        observableObject.value1 += "!"
 
-            XCTAssertEqual(counter, 1)
-            XCTAssertEqual(observableObject.value1, "hello!")
+        XCTAssertEqual(counter, 1)
+        XCTAssertEqual(observableObject.value1, "hello!")
 
-            observableObject.value2.toggle()
+        observableObject.value2.toggle()
 
-            XCTAssertEqual(counter, 2)
-            XCTAssertEqual(observableObject.value2, false)
-        }
+        XCTAssertEqual(counter, 2)
+        XCTAssertEqual(observableObject.value2, false)
     }
 
     func testGenericSubclassOfResilientClass2() {
@@ -234,28 +238,25 @@ final class ObservableObjectTests: XCTestCase {
 
         var counter = 0
 
-        // A bug in Combine (FB7471594). It should not crash. Why would it crash?
-        assertCrashesOnDarwin {
-            observableObject.objectWillChange.sink { counter += 1 }.store(in: &disposeBag)
-            XCTAssertEqual(counter, 0)
-            XCTAssertEqual(observableObject.value1, "hello")
-            XCTAssertEqual(observableObject.value2, true)
+        observableObject.objectWillChange.sink { counter += 1 }.store(in: &disposeBag)
+        XCTAssertEqual(counter, 0)
+        XCTAssertEqual(observableObject.value1, "hello")
+        XCTAssertEqual(observableObject.value2, true)
 
-            observableObject.value1 += "!"
+        observableObject.value1 += "!"
 
-            XCTAssertEqual(counter, 1)
-            XCTAssertEqual(observableObject.value1, "hello!")
+        XCTAssertEqual(counter, 1)
+        XCTAssertEqual(observableObject.value1, "hello!")
 
-            observableObject.value2.toggle()
+        observableObject.value2.toggle()
 
-            XCTAssertEqual(counter, 2)
-            XCTAssertEqual(observableObject.value2, false)
+        XCTAssertEqual(counter, 2)
+        XCTAssertEqual(observableObject.value2, false)
 
-            observableObject.value3.toggle()
+        observableObject.value3.toggle()
 
-            XCTAssertEqual(counter, 3)
-            XCTAssertEqual(observableObject.value3, true)
-        }
+        XCTAssertEqual(counter, 3)
+        XCTAssertEqual(observableObject.value3, true)
     }
 
     func testObservableDerivedWithNonObservableBase() {
